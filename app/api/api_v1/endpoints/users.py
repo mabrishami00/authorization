@@ -59,3 +59,20 @@ async def user_login(user_data: UserLogin):
             )
 
 
+@router.post("/login_otp/", status_code=status.HTTP_200_OK)
+async def user_login_otp(user_data: UserLoginOTP):
+    user_data = user_data.model_dump()
+    print(user_data)
+    async with httpx.AsyncClient() as client:
+        url = settings.LOGIN_OTP_URL
+        print(url)
+        response = await client.post(url=url, json=user_data)
+        response_text = json.loads(response.text)
+        if response.status_code == 200:
+            return JSONResponse(response_text)
+        elif response.status_code == 401:
+            return JSONResponse(response_text)
+        else:
+            return JSONResponse({"detail": "Invalid request."})
+
+
