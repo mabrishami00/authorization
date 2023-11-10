@@ -31,7 +31,7 @@ async def user_register(user_data: UserCreate):
                 "email": user_data_dict.get("email"),
                 "message": "You have been registered successfully.",
             }
-            url_email = settings.EMAIL_URL 
+            url_email = settings.EMAIL_URL
             response = await client.post(url_email, json=data)
             return JSONResponse(response_dict)
         elif response.status_code == 400:
@@ -146,3 +146,38 @@ async def user_logout_all(
     return JSONResponse({"detail": "All accounts have been logged out."})
 
 
+@router.post("/get_new_refresh_token/")
+async def user_get_new_refresh_token(
+    refresh_token: RefreshToken = Body(default=None), redis=Depends(get_redis)
+):
+    refresh_token = refresh_token.refresh_token
+    print(refresh_token)
+    try:
+        jti, username = jwt_authentication.decode_refresh_token(
+            refresh_token, settings.SECRET_KEY
+        )
+    except Exception as e:
+        username = None
+        jti = None
+    print(username, jti)
+    result = await redis.get(jti)
+    if result:
+        await redis.delete(jti)
+        (
+            access_token,
+            refresh_token,
+            jti,
+        ) = jwt_authentication.generate_access_and_refresh_token(
+            username,
+            settings.ACCESS_KEY_EXPIRE_TIME,
+            settings.REFRESH_KEY_EXPIRE_TIME,
+            settings.SECRET_KEY,
+        )
+        await redis.set(jti, username)
+        return JSONResponse(
+            {"access_token": access_token, "refresh_token": refresh_token}
+        )
+    else:
+        return JSONResponse(
+            {"detail": "invalid request."}, status_code=status.HTTP_400_BAD_REQUEST
+        )
