@@ -76,3 +76,32 @@ async def user_login_otp(user_data: UserLoginOTP):
             return JSONResponse({"detail": "Invalid request."})
 
 
+@router.post("/check_otp/", status_code=status.HTTP_200_OK)
+async def user_check_otp(
+    user_data: UserCheckOTP,
+    redis=Depends(get_redis),
+    redis_email=Depends(get_redis_email),
+):
+    username = user_data.username
+    email = user_data.email
+    otp = user_data.otp
+    print(otp)
+    result = await redis_email.get(email)
+    result = int(result.decode("utf8"))
+    print(result)
+    if result == otp:
+        (
+            access_key,
+            refresh_key,
+            jti,
+        ) = jwt_authentication.generate_access_and_refresh_token(
+            username,
+            settings.ACCESS_KEY_EXPIRE_TIME,
+            settings.REFRESH_KEY_EXPIRE_TIME,
+            settings.SECRET_KEY,
+        )
+        await redis.set(jti, username)
+        return JSONResponse({"access_key": access_key, "refresh_key": refresh_key})
+    else:
+        return JSONResponse({"detail": "OTP is not correct."})
+
