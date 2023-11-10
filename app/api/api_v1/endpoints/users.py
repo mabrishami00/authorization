@@ -125,3 +125,24 @@ async def user_logout(
     else:
         return JSONResponse({"detail": "You are not logged in."})
 
+
+@router.post("/logout_all/", status_code=status.HTTP_200_OK)
+async def user_logout_all(
+    authorization: str = Header(default=None), redis=Depends(get_redis)
+):
+    try:
+        username, jti = jwt_authentication.authenticate(
+            authorization, settings.SECRET_KEY
+        )
+    except Exception as e:
+        username = None
+        jti = None
+
+    jtis = await redis.keys()
+    for jti in jtis:
+        username_redis = await redis.get(jti)
+        if username_redis.decode("utf8") == username:
+            await redis.delete(jti)
+    return JSONResponse({"detail": "All accounts have been logged out."})
+
+
