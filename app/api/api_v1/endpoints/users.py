@@ -105,3 +105,23 @@ async def user_check_otp(
     else:
         return JSONResponse({"detail": "OTP is not correct."})
 
+
+@router.post("/logout/", status_code=status.HTTP_200_OK)
+async def user_logout(
+    authorization: str = Header(default=None), redis=Depends(get_redis)
+):
+    try:
+        username, jti = jwt_authentication.authenticate(
+            authorization, settings.SECRET_KEY
+        )
+    except Exception as e:
+        username = None
+        jti = None
+
+    result = await redis.get(jti)
+    if username and result:
+        await redis.delete(jti)
+        return JSONResponse({"detail": "You have been logged out successfully."})
+    else:
+        return JSONResponse({"detail": "You are not logged in."})
+
